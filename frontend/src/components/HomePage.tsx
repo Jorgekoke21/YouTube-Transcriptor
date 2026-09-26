@@ -87,18 +87,34 @@ export default function HomePage() {
   const minSelected = consolidatedWanted ? 2 : 1;
   const canGenerateBatch = !!batchResult && selected.size >= minSelected && !cleanNotConsolidable && !submitting;
 
-  async function analyze() {
-    const key = batchKey;
+  // Batch mode: inspect all videos shortly after the user stops pasting/typing, same as the single-URL flow.
+  useEffect(() => {
+    if (!isBatch) return;
     setSubmitError(null);
-    setBatch({ state: "loading", key });
-    try {
-      const result = await api.inspectBatch(parsed.lines);
-      setSelected(new Set(result.videos.filter((v) => v.transcript_available).map((v) => v.video.video_id)));
-      setBatch({ state: "done", key, result });
-    } catch (error) {
-      setBatch({ state: "error", key, error });
+    if (parsed.unique.length === 0) {
+      setBatch({ state: "idle" });
+      return;
     }
-  }
+    const controller = new AbortController();
+    const key = batchKey;
+    const timer = window.setTimeout(() => {
+      setBatch({ state: "loading", key });
+      api
+        .inspectBatch(parsed.lines, controller.signal)
+        .then((result) => {
+          setSelected(new Set(result.videos.filter((v) => v.transcript_available).map((v) => v.video.video_id)));
+          setBatch({ state: "done", key, result });
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) setBatch({ state: "error", key, error });
+        });
+    }, 400);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBatch, batchKey]);
 
   async function generateSingle() {
     const doc = await api.createDocument({ url: url.trim(), document_type: documentType, output_language: language });
@@ -120,10 +136,6 @@ export default function HomePage() {
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (isBatch && !batchResult) {
-      if (batch.state !== "loading" && parsed.unique.length > 0) await analyze();
-      return;
-    }
     if (isBatch ? !canGenerateBatch : !canGenerateSingle) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -156,8 +168,7 @@ export default function HomePage() {
   const rows = Math.min(Math.max(text.split("\n").length, 1), 10);
 
   let buttonLabel = "GENERAR DOCUMENTO";
-  if (isBatch && !batchResult) buttonLabel = batch.state === "loading" ? "ANALIZANDO VÍDEOS…" : "ANALIZAR VÍDEOS";
-  else if (isBatch)
+  if (isBatch && batchResult)
     buttonLabel =
       outputMode === "individual"
         ? `GENERAR ${plural(selected.size, "DOCUMENTO", "DOCUMENTOS")}`
@@ -165,11 +176,7 @@ export default function HomePage() {
           ? "GENERAR DOCUMENTOS Y CONSOLIDADO"
           : "GENERAR DOCUMENTO CONSOLIDADO";
   if (submitting) buttonLabel = "INICIANDO…";
-  const buttonDisabled = isBatch
-    ? batchResult
-      ? !canGenerateBatch
-      : parsed.unique.length === 0 || batch.state === "loading"
-    : !canGenerateSingle;
+  const buttonDisabled = isBatch ? !canGenerateBatch : !canGenerateSingle;
 
   return (
     <div className="pt-10 sm:pt-20">
@@ -184,7 +191,7 @@ export default function HomePage() {
         <form ref={formRef} onSubmit={onSubmit} className="mt-10 space-y-6" noValidate>
           <div>
             <label htmlFor={ids.url} className="sr-only">
-              URL del vídeo de YouTube (o varias, una por línea)
+              URL del vídeo de YouTube (o varias, separadas por líneas o espacios)
             </label>
             <textarea
               id={ids.url}
@@ -193,7 +200,7 @@ export default function HomePage() {
               autoComplete="off"
               spellCheck={false}
               autoFocus
-              placeholder="Pega una URL de YouTube (o varias, una por línea)"
+              placeholder="Pega una o varias URLs de YouTube"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {

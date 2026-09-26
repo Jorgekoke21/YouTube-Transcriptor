@@ -74,18 +74,19 @@ export function looksLikeYouTubeUrl(value: string): boolean {
 }
 
 export interface ParsedUrls {
-  /** Non-empty, trimmed lines in paste order. */
+  /** Non-empty tokens in paste order (URLs may be separated by newlines, spaces, commas, or tabs). */
   lines: string[];
-  /** First line of each distinct video, in paste order. */
+  /** First token of each distinct video, in paste order. */
   unique: { input: string; videoId: string }[];
   invalid: string[];
   duplicates: number;
 }
 
-/** Split a pasted block into URLs: drop empty lines, dedupe by video id, keep the paste order. */
+/** Split pasted text into URLs: any run of whitespace or commas separates entries, so URLs work whether
+ * they're one per line or pasted inline with spaces between them. Dedupe by video id, keep paste order. */
 export function parseUrlLines(text: string): ParsedUrls {
   const lines = text
-    .split(/\r?\n/)
+    .split(/[\s,]+/)
     .map((l) => l.trim())
     .filter(Boolean);
   const seen = new Set<string>();
