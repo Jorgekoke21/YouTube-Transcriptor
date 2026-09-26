@@ -1,0 +1,32 @@
+{
+  "language": "Español (generado automáticamente)",
+  "language_code": "es",
+  "is_generated": true,
+  "segments": [
+    {"text": "hola a todos bienvenidos de nuevo al canal", "start": 0.0, "duration": 3.2},
+    {"text": "si no estáis suscritos suscribíos y activad la campanita", "start": 3.2, "duration": 4.1},
+    {"text": "Hoy vamos a explicar qué es una divergencia.", "start": 7.3, "duration": 5.0},
+    {"text": "Una divergencia aparece cuando el precio marca un nuevo mínimo", "start": 12.3, "duration": 4.5},
+    {"text": "pero el RSI no acompaña y marca un mínimo más alto", "start": 16.8, "duration": 4.2},
+    {"text": "eso es lo que llamamos divergencia alcista", "start": 21.0, "duration": 3.4},
+    {"text": "y al revés, si el precio hace un máximo más alto y el RSI un máximo más bajo", "start": 24.4, "duration": 5.6},
+    {"text": "tenemos una divergencia bajista", "start": 30.0, "duration": 2.8},
+    {"text": "[Música]", "start": 32.8, "duration": 2.0},
+    {"text": "Una divergencia por sí sola no es una entrada.", "start": 34.8, "duration": 6.0},
+    {"text": "esto es muy importante, eh, mucha gente entra solo por ver la divergencia", "start": 40.8, "duration": 5.2},
+    {"text": "y ese es el error más habitual que veo", "start": 46.0, "duration": 3.5},
+    {"text": "yo lo que hago es esperar a que el precio rompa la estructura", "start": 49.5, "duration": 4.8},
+    {"text": "en la divergencia alcista espero a que rompa el último máximo relevante", "start": 54.3, "duration": 5.1},
+    {"text": "aquí esperamos a que rompa este máximo", "start": 59.4, "duration": 3.3},
+    {"text": "y solo cuando rompe considero que la entrada es válida", "start": 62.7, "duration": 4.0},
+    {"text": "normalmente lo miro en gráfico de una hora", "start": 66.7, "duration": 3.4},
+    {"text": "aunque creo que en cuatro horas también funciona bastante bien", "start": 70.1, "duration": 4.4},
+    {"text": "si el precio vuelve a hacer un mínimo por debajo del mínimo de la divergencia", "start": 74.5, "duration": 5.3},
+    {"text": "entonces la idea queda invalidada y no entro", "start": 79.8, "duration": 3.9},
+    {"text": "veamos un ejemplo en el euro dólar", "start": 83.7, "duration": 3.2},
+    {"text": "aquí el precio hace un mínimo, luego otro mínimo más bajo", "start": 86.9, "duration": 4.6},
+    {"text": "y el RSI en cambio marca un mínimo más alto", "start": 91.5, "duration": 3.8},
+    {"text": "esperamos la ruptura de este máximo de aquí y entonces entramos", "start": 95.3, "duration": 5.0},
+    {"text": "bueno pues esto es todo por hoy, nos vemos en el próximo vídeo", "start": 100.3, "duration": 4.2}
+  ]
+}
