@@ -20,12 +20,34 @@ from youtube_transcript_api import (
     VideoUnplayable,
     YouTubeTranscriptApi,
 )
+from youtube_transcript_api.proxies import WebshareProxyConfig
 
+from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
 from app.models.transcript import Transcript, TranscriptInfo
 from app.services.transcripts.base import TranscriptProvider, clean_language_name, normalize_segments
 
 logger = logging.getLogger(__name__)
+
+
+def build_youtube_api(settings: Settings) -> YouTubeTranscriptApi:
+    """Creates the client, routed through a residential proxy only when configured.
+
+    The proxy only affects requests made by this client to YouTube; nothing else
+    (OpenAI, oEmbed metadata...) goes through it. Credentials are never logged.
+    """
+    if settings.youtube_proxy_provider == "webshare":
+        assert settings.webshare_proxy_username and settings.webshare_proxy_password  # enforced by Settings
+        locations = settings.webshare_proxy_location_list
+        logger.info("YouTube transcript proxy: webshare (locations=%s)", ",".join(locations) or "any")
+        return YouTubeTranscriptApi(
+            proxy_config=WebshareProxyConfig(
+                proxy_username=settings.webshare_proxy_username.get_secret_value().strip(),
+                proxy_password=settings.webshare_proxy_password.get_secret_value().strip(),
+                filter_ip_locations=locations or None,
+            )
+        )
+    return YouTubeTranscriptApi()
 
 
 def _map_error(exc: Exception) -> AppError:
@@ -42,6 +64,14 @@ def _map_error(exc: Exception) -> AppError:
     return AppError(ErrorCode.TRANSCRIPT_FETCH_FAILED)
 
 
+def _log_retrieve_error(step: str, video_id: str, exc: Exception) -> None:
+    # Only the exception type is logged: messages may describe the proxy setup.
+    if isinstance(exc, (RequestBlocked, IpBlocked)):
+        logger.warning("youtube_ip_blocked: transcript %s blocked for %s (%s)", step, video_id, type(exc).__name__)
+    else:
+        logger.info("Transcript %s failed for %s: %s", step, video_id, type(exc).__name__)
+
+
 class YouTubeTranscriptProvider(TranscriptProvider):
     def __init__(self, api: YouTubeTranscriptApi | None = None) -> None:
         self._api = api or YouTubeTranscriptApi()
@@ -50,7 +80,7 @@ class YouTubeTranscriptProvider(TranscriptProvider):
         try:
             return self._api.list(video_id)
         except CouldNotRetrieveTranscript as exc:
-            logger.info("Transcript list failed for %s: %s", video_id, type(exc).__name__)
+            _log_retrieve_error("list", video_id, exc)
             raise _map_error(exc) from exc
         except Exception as exc:  # network errors, parsing changes...
             logger.warning("Unexpected transcript list error for %s: %s", video_id, type(exc).__name__)
@@ -73,6 +103,7 @@ class YouTubeTranscriptProvider(TranscriptProvider):
         try:
             fetched = match.fetch()
         except CouldNotRetrieveTranscript as exc:
+            _log_retrieve_error("fetch", video_id, exc)
             raise _map_error(exc) from exc
         except Exception as exc:
             logger.warning("Unexpected transcript fetch error for %s: %s", video_id, type(exc).__name__)

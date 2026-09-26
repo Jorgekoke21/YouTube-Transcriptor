@@ -16,9 +16,9 @@ def build_transcript_provider(settings: Settings) -> TranscriptProvider:
         from app.services.transcripts.fixture import FixtureTranscriptProvider
 
         return FixtureTranscriptProvider()
-    from app.services.transcripts.youtube import YouTubeTranscriptProvider
+    from app.services.transcripts.youtube import YouTubeTranscriptProvider, build_youtube_api
 
-    return YouTubeTranscriptProvider()
+    return YouTubeTranscriptProvider(api=build_youtube_api(settings))
 
 
 def build_metadata_provider(settings: Settings) -> MetadataProvider:

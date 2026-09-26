@@ -54,6 +54,7 @@ def health(service: DocumentService = Depends(get_service)) -> dict:
         "model": service.settings.openai_model if service.settings.ai_provider == "openai" else "fake-model",
         "reasoning": service.settings.openai_reasoning if service.settings.ai_provider == "openai" else None,
         "transcript_provider": service.settings.transcript_provider,
+        "transcript_proxy": service.settings.youtube_proxy_provider,
         "max_videos_per_batch": service.settings.max_videos_per_batch,
     }
 

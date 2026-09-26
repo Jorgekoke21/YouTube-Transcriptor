@@ -62,6 +62,9 @@ FRONTEND_PORT=5173
 | `MAX_VIDEOS_PER_BATCH` | `20` | Máximo de vídeos distintos por lote multi-URL (los duplicados no cuentan). Si se supera: error `BATCH_TOO_LARGE`. |
 | `TRANSCRIPT_PROVIDER` | `youtube` | `fixture` = transcripción de ejemplo local (desarrollo sin red). |
 | `AI_PROVIDER` | `openai` | `fake` = IA simulada determinista (desarrollo sin coste). |
+| `YOUTUBE_PROXY_PROVIDER` | `none` | Proxy opcional **solo** para las peticiones de transcripción a YouTube: `none` o `webshare`. Ver [Proxy para YouTube](#proxy-para-youtube-opcional). |
+| `WEBSHARE_PROXY_USERNAME` / `WEBSHARE_PROXY_PASSWORD` | *(vacío)* | Credenciales de Webshare. Obligatorias si `YOUTUBE_PROXY_PROVIDER=webshare`; ignoradas en otro caso. |
+| `WEBSHARE_PROXY_LOCATIONS` | *(vacío)* | Países de salida del proxy separados por comas (p. ej. `es,de,fr`). Vacío = cualquiera. |
 
 `.env` está en `.gitignore`. La API key nunca se envía al frontend, ni aparece en respuestas HTTP ni en los logs.
 
@@ -87,6 +90,25 @@ reasoning={"effort": settings.openai_reasoning_effort, "mode": settings.openai_r
   ```
 - `GET /api/health` devuelve el modelo y el `reasoning` efectivos.
 - Modelo y reasoning forman parte de la clave de caché: si cambias cualquiera de los tres valores, no se reutilizan documentos generados con la configuración anterior.
+
+### Proxy para YouTube (opcional)
+
+En local la IP es residencial y YouTube responde con normalidad. Desde proveedores cloud (Render, AWS, GCP, Azure…) YouTube suele responder con `RequestBlocked` / `IpBlocked` porque la petición sale de una IP de datacenter; la API lo devuelve como `TRANSCRIPT_FETCH_FAILED` y el log del backend lo marca como `youtube_ip_blocked`.
+
+Para esos despliegues se puede enrutar **solo** el `YouTubeTranscriptProvider` a través de un proxy residencial rotativo, usando el soporte oficial de `youtube-transcript-api`:
+
+```env
+YOUTUBE_PROXY_PROVIDER=webshare
+WEBSHARE_PROXY_USERNAME=...
+WEBSHARE_PROXY_PASSWORD=...
+WEBSHARE_PROXY_LOCATIONS=es,de,fr   # opcional
+```
+
+- Es **opcional**: con `YOUTUBE_PROXY_PROVIDER=none` (por defecto) se usa `YouTubeTranscriptApi()` sin proxy, exactamente como antes.
+- Con `webshare` se crea `YouTubeTranscriptApi(proxy_config=WebshareProxyConfig(...))`. Hacen falta proxies **"Residential"** de Webshare (los planes "Proxy Server"/"Static Residential" y el gratuito no funcionan de forma fiable con YouTube).
+- Si falta el usuario o la contraseña, el backend **no arranca** y muestra qué variable falta.
+- OpenAI y los metadatos (oEmbed) **no** pasan por el proxy.
+- Las credenciales solo las lee el backend: no aparecen en el frontend, en respuestas HTTP, en logs, en `processed.json` ni en claves de caché. `GET /api/health` solo indica `transcript_proxy: "none" | "webshare"`.
 
 ## 5. Cómo ejecutar
 
@@ -244,7 +266,7 @@ Cada documento va en su propia carpeta para que distintos tipos/idiomas del mism
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/api/health` | Estado, proveedor y modelo configurado |
+| GET | `/api/health` | Estado, proveedor, modelo configurado y proxy de transcripción (`transcript_proxy`) |
 | POST | `/api/videos/inspect` | `{url}` → vídeo, metadatos, transcripción disponible/idioma/tipo. No genera nada |
 | POST | `/api/documents` | `{url, document_type, output_language, force_regenerate}` → 202 + id; procesa en segundo plano |
 | GET | `/api/documents` | Documentos recientes (historial) |
@@ -276,7 +298,7 @@ Formatos (todos generados desde la representación estructurada): **Markdown** (
 
 ```bash
 cd backend
-pytest                      # 162 tests unitarios y de API: sin red, sin OpenAI, sin YouTube
+pytest                      # 193 tests unitarios y de API: sin red, sin OpenAI, sin YouTube
 ruff check . && ruff format --check .
 mypy app
 
@@ -298,7 +320,7 @@ RUN_INTEGRATION=1 OPENAI_API_KEY=... pytest tests/integration   # + una llamada 
 
 - **La aplicación depende de que exista una transcripción de YouTube accesible. Si no existe, el vídeo no se procesa.**
 - **El proveedor inicial de transcripciones utiliza `youtube-transcript-api`; cambios internos en YouTube podrían requerir actualizar o sustituir este proveedor.** Todo el acoplamiento está en `services/transcripts/youtube.py`, detrás de la interfaz `TranscriptProvider`.
-- YouTube puede bloquear temporalmente peticiones desde algunas IPs (sobre todo de proveedores cloud); se informa como `TRANSCRIPT_FETCH_FAILED`.
+- YouTube puede bloquear temporalmente peticiones desde algunas IPs (sobre todo de proveedores cloud); se informa como `TRANSCRIPT_FETCH_FAILED`. En esos entornos se puede activar el [proxy residencial opcional](#proxy-para-youtube-opcional).
 - Las transcripciones automáticas contienen errores de reconocimiento (p. ej. "mis top" en vez de "mi stop"). Los prompts y la verificación contra la transcripción original los tienen en cuenta, pero la calidad del documento está limitada por la de la transcripción.
 - La fidelidad se refuerza con prompts, verificación y salvaguardas deterministas, pero un LLM puede equivocarse: los timestamps permiten comprobar cada sección en el vídeo.
 - La verificación revisa cada capítulo por separado; puede quedar alguna repetición menor entre capítulos.
